@@ -266,6 +266,7 @@
                 this.lastPosition = null;
                 this.path = [];
                 this.gameTimer = null;
+                this.audioEnabled = false; // 音声が有効化されているかのフラグ
                 
                 // 音声ファイルの初期化
                 this.initAudio();
@@ -341,14 +342,15 @@
                     startBtn.addEventListener(eventType, (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('Start button triggered:', eventType); // デバッグ用
+                        console.log('Start button triggered:', eventType);
+                        this.enableAudio(); // 音声を有効化
                         this.startGame();
                     });
                     
                     restartBtn.addEventListener(eventType, (e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('Restart button triggered:', eventType); // デバッグ用
+                        console.log('Restart button triggered:', eventType);
                         this.restartGame();
                     });
                 });
@@ -387,8 +389,47 @@
                 }, { passive: false });
             }
 
+            // 音声を有効化する（モバイルブラウザ対応）
+            enableAudio() {
+                if (this.audioEnabled) return;
+                
+                try {
+                    // すべての音声ファイルを一度再生して無音で停止（オーディオコンテキストを有効化）
+                    if (this.startSound) {
+                        this.startSound.volume = 0;
+                        this.startSound.play().then(() => {
+                            this.startSound.pause();
+                            this.startSound.currentTime = 0;
+                            this.startSound.volume = 0.7;
+                            this.audioEnabled = true;
+                            console.log('Audio enabled');
+                        }).catch(e => console.log('Audio enable failed:', e));
+                    }
+                    
+                    if (this.pointSound) {
+                        this.pointSound.volume = 0;
+                        this.pointSound.play().then(() => {
+                            this.pointSound.pause();
+                            this.pointSound.currentTime = 0;
+                            this.pointSound.volume = 0.5;
+                        }).catch(e => {});
+                    }
+                    
+                    if (this.overSound) {
+                        this.overSound.volume = 0;
+                        this.overSound.play().then(() => {
+                            this.overSound.pause();
+                            this.overSound.currentTime = 0;
+                            this.overSound.volume = 0.6;
+                        }).catch(e => {});
+                    }
+                } catch (e) {
+                    console.log('Audio enable error:', e);
+                }
+            }
+
             startGame() {
-                console.log('Starting game...'); // デバッグ用
+                console.log('Starting game...');
                 
                 // 音声再生（エラーでゲームが止まらないように）
                 try {
@@ -403,7 +444,7 @@
                 this.timeLeft = 30;
                 this.updateDisplay();
                 
-                console.log('Game started, timer starting...'); // デバッグ用
+                console.log('Game started, timer starting...');
                 
                 this.gameTimer = setInterval(() => {
                     this.timeLeft--;
