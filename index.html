@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>酛づくりチャレンジ</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #2c1810, #4a3429);
+            color: white;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .title {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            background: linear-gradient(45deg, #d4af37, #f4d03f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .game-area {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, #8B4513, #654321);
+            border: 8px solid #D2691E;
+            border-radius: 50%;
+            position: relative;
+            cursor: crosshair;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5), 0 0 30px rgba(210,105,30,0.6);
+        }
+
+        .liquid {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 80%;
+            background: radial-gradient(circle, rgba(255,255,255,0.3), rgba(255,255,255,0.1));
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .stats {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .score, .timer {
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid #D2691E;
+        }
+
+        .start-screen, .game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .start-btn, .restart-btn {
+            font-size: 1.5rem;
+            padding: 15px 30px;
+            background: linear-gradient(45deg, #D2691E, #CD853F);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+
+        .start-btn:hover, .restart-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .instructions {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .trail {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            background: rgba(255,255,255,0.6);
+            animation: fadeOut 1s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+        }
+
+        .ripple {
+            position: absolute;
+            border: 2px solid rgba(255,255,255,0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: rippleEffect 0.8s ease-out forwards;
+        }
+
+        @keyframes rippleEffect {
+            from {
+                width: 10px;
+                height: 10px;
+                opacity: 1;
+            }
+            to {
+                width: 100px;
+                height: 100px;
+                opacity: 0;
+            }
+        }
+
+        .touch-dent {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            background: radial-gradient(circle, rgba(0,0,0,0.4), rgba(0,0,0,0.1));
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.6);
+            animation: dentEffect 0.8s ease-out forwards;
+        }
+
+        @keyframes dentEffect {
+            0% {
+                width: 5px;
+                height: 5px;
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: inset 0 0 5px rgba(0,0,0,0.8);
+            }
+            50% {
+                width: 20px;
+                height: 20px;
+                opacity: 0.8;
+                transform: translate(-50%, -50%) scale(1.2);
+                box-shadow: inset 0 0 15px rgba(0,0,0,0.6);
+            }
+            100% {
+                width: 15px;
+                height: 15px;
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+                box-shadow: inset 0 0 10px rgba(0,0,0,0.4);
+            }
+        }
+
+        .final-score {
+            font-size: 2rem;
+            margin: 20px 0;
+            color: #D2691E;
+        }
+
+        @media (max-width: 768px) {
+            .game-area {
+                width: 80vw;
+                height: 80vw;
+                max-width: 500px;
+                max-height: 500px;
+            }
+            .title {
+                font-size: 2rem;
+            }
+            .stats {
+                font-size: 1.2rem;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="title">酛づくりチャレンジ</div>
+        
+        <div class="stats">
+            <div class="score">スコア: <span id="scoreValue">0</span></div>
+            <div class="timer">残り時間: <span id="timerValue">30</span>秒</div>
+        </div>
+
+        <div class="game-area" id="gameArea">
+            <div class="liquid" id="liquid"></div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <div class="instructions">
+                <h2>酛づくりチャレンジ</h2>
+                <p>マウスやタッチで円を描いて<br>麹と水をしっかり混ぜましょう！</p>
+                <p>円を描くごとに1ポイント獲得</p>
+                <p>制限時間：30秒</p>
+            </div>
+            <button class="start-btn" id="startBtn">ゲーム開始</button>
+        </div>
+
+        <div class="game-over-screen" id="gameOverScreen" style="display: none;">
+            <h2>酛づくり完了！</h2>
+            <div class="final-score" id="finalScore">スコア: 0</div>
+            <button class="restart-btn" id="restartBtn">もう一度挑戦</button>
+        </div>
+    </div>
+
+    <script>
+        class MotoGame {
+            constructor() {
+                this.gameArea = document.getElementById('gameArea');
+                this.liquid = document.getElementById('liquid');
+                this.scoreElement = document.getElementById('scoreValue');
+                this.timerElement = document.getElementById('timerValue');
+                this.startScreen = document.getElementById('startScreen');
+                this.gameOverScreen = document.getElementById('gameOverScreen');
+                this.finalScoreElement = document.getElementById('finalScore');
+                
+                this.score = 0;
+                this.timeLeft = 30;
+                this.gameRunning = false;
+                this.isDrawing = false;
+                this.lastPosition = null;
+                this.path = [];
+                this.gameTimer = null;
+                
+                // 音声ファイルの初期化
+                this.initAudio();
+                this.initEventListeners();
+            }
+
+            initAudio() {
+                // 音声ファイルの読み込み
+                this.startSound = new Audio('start.mp3');
+                this.pointSound = new Audio('point.mp3');
+                this.overSound = new Audio('over.mp3'); // 終了音を追加
+                
+                // 音声ファイルのプリロード
+                this.startSound.preload = 'auto';
+                this.pointSound.preload = 'auto';
+                this.overSound.preload = 'auto';
+                
+                // 音量設定
+                this.startSound.volume = 0.7;
+                this.pointSound.volume = 0.5;
+                this.overSound.volume = 0.6;
+                
+                this.playStartSound = () => {
+                    this.startSound.currentTime = 0;
+                    this.startSound.play().catch(e => console.log('Start sound play failed:', e));
+                };
+                
+                this.playPointSound = () => {
+                    // 複数回の再生に対応するため、クローンを作成
+                    const soundClone = this.pointSound.cloneNode();
+                    soundClone.volume = this.pointSound.volume;
+                    soundClone.play().catch(e => console.log('Point sound play failed:', e));
+                };
+
+                this.playOverSound = () => {
+                    this.overSound.currentTime = 0;
+                    this.overSound.play().catch(e => console.log('Over sound play failed:', e));
+                };
+            }
+
+            initEventListeners() {
+                document.getElementById('startBtn').addEventListener('click', () => this.startGame());
+                document.getElementById('restartBtn').addEventListener('click', () => this.restartGame());
+                
+                // マウスイベント
+                this.gameArea.addEventListener('mousedown', (e) => this.startDrawing(e));
+                document.addEventListener('mousemove', (e) => this.draw(e));
+                document.addEventListener('mouseup', () => this.stopDrawing());
+                
+                // タッチイベント
+                this.gameArea.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.startDrawing(e.touches[0]);
+                });
+                document.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    this.draw(e.touches[0]);
+                });
+                document.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.stopDrawing();
+                });
+            }
+
+            startGame() {
+                this.playStartSound();
+                
+                this.startScreen.style.display = 'none';
+                this.gameRunning = true;
+                this.score = 0;
+                this.timeLeft = 30;
+                this.updateDisplay();
+                
+                this.gameTimer = setInterval(() => {
+                    this.timeLeft--;
+                    this.updateDisplay();
+                    
+                    if (this.timeLeft <= 0) {
+                        this.endGame();
+                    }
+                }, 1000);
+            }
+
+            endGame() {
+                this.gameRunning = false;
+                clearInterval(this.gameTimer);
+                this.playOverSound(); // 終了音を再生
+                this.finalScoreElement.textContent = `スコア: ${this.score}`;
+                this.gameOverScreen.style.display = 'flex';
+            }
+
+            restartGame() {
+                this.gameOverScreen.style.display = 'none';
+                this.startGame();
+            }
+
+            startDrawing(e) {
+                if (!this.gameRunning) return;
+                
+                this.isDrawing = true;
+                this.path = [];
+                const rect = this.gameArea.getBoundingClientRect();
+                const position = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                this.lastPosition = position;
+                this.path.push(position);
+                
+                // タッチした場所にくぼみエフェクトを追加
+                this.addTouchDent(position);
+            }
+
+            draw(e) {
+                if (!this.gameRunning || !this.isDrawing) return;
+                
+                const rect = this.gameArea.getBoundingClientRect();
+                const currentPosition = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                
+                // 軌跡エフェクトを追加
+                this.addTrailEffect(currentPosition);
+                
+                // 移動中もくぼみエフェクトを追加（間隔をあけて）
+                if (this.path.length % 3 === 0) {
+                    this.addTouchDent(currentPosition);
+                }
+                
+                this.path.push(currentPosition);
+                this.lastPosition = currentPosition;
+            }
+
+            stopDrawing() {
+                if (!this.gameRunning || !this.isDrawing) return;
+                
+                this.isDrawing = false;
+                
+                // 円の検出
+                if (this.detectCircle()) {
+                    this.score++;
+                    this.playPointSound();
+                    this.addRippleEffect();
+                    this.animateLiquid();
+                    this.updateDisplay();
+                }
+                
+                this.path = [];
+            }
+
+            detectCircle() {
+                if (this.path.length < 20) return false;
+                
+                // 簡単な円検出アルゴリズム
+                const center = this.calculateCenter();
+                const radius = this.calculateAverageRadius(center);
+                
+                if (radius < 30 || radius > 200) return false;
+                
+                // 円らしさの判定
+                let validPoints = 0;
+                for (let point of this.path) {
+                    const distance = Math.sqrt(
+                        Math.pow(point.x - center.x, 2) + 
+                        Math.pow(point.y - center.y, 2)
+                    );
+                    if (Math.abs(distance - radius) < radius * 0.3) {
+                        validPoints++;
+                    }
+                }
+                
+                return validPoints / this.path.length > 0.6;
+            }
+
+            calculateCenter() {
+                let sumX = 0, sumY = 0;
+                for (let point of this.path) {
+                    sumX += point.x;
+                    sumY += point.y;
+                }
+                return {
+                    x: sumX / this.path.length,
+                    y: sumY / this.path.length
+                };
+            }
+
+            calculateAverageRadius(center) {
+                let sumRadius = 0;
+                for (let point of this.path) {
+                    sumRadius += Math.sqrt(
+                        Math.pow(point.x - center.x, 2) + 
+                        Math.pow(point.y - center.y, 2)
+                    );
+                }
+                return sumRadius / this.path.length;
+            }
+
+            addTrailEffect(position) {
+                const trail = document.createElement('div');
+                trail.className = 'trail';
+                trail.style.left = position.x - 5 + 'px';
+                trail.style.top = position.y - 5 + 'px';
+                trail.style.width = '10px';
+                trail.style.height = '10px';
+                
+                this.gameArea.appendChild(trail);
+                
+                setTimeout(() => {
+                    if (trail.parentNode) {
+                        trail.parentNode.removeChild(trail);
+                    }
+                }, 1000);
+            }
+
+            addTouchDent(position) {
+                const dent = document.createElement('div');
+                dent.className = 'touch-dent';
+                dent.style.left = position.x + 'px';
+                dent.style.top = position.y + 'px';
+                
+                this.gameArea.appendChild(dent);
+                
+                setTimeout(() => {
+                    if (dent.parentNode) {
+                        dent.parentNode.removeChild(dent);
+                    }
+                }, 800);
+            }
+
+            addRippleEffect() {
+                const ripple = document.createElement('div');
+                ripple.className = 'ripple';
+                ripple.style.left = '50%';
+                ripple.style.top = '50%';
+                ripple.style.transform = 'translate(-50%, -50%)';
+                
+                this.gameArea.appendChild(ripple);
+                
+                setTimeout(() => {
+                    if (ripple.parentNode) {
+                        ripple.parentNode.removeChild(ripple);
+                    }
+                }, 800);
+            }
+
+            animateLiquid() {
+                this.liquid.style.transform = 'translate(-50%, -50%) scale(1.1)';
+                setTimeout(() => {
+                    this.liquid.style.transform = 'translate(-50%, -50%) scale(1)';
+                }, 200);
+            }
+
+            updateDisplay() {
+                this.scoreElement.textContent = this.score;
+                this.timerElement.textContent = this.timeLeft;
+            }
+        }
+
+        // ゲーム開始
+        window.addEventListener('load', () => {
+            new MotoGame();
+        });
+    </script>
+</body>
+</html>
