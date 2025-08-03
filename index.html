@@ -201,6 +201,18 @@
             color: #D2691E;
         }
 
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+
         @media (max-width: 768px) {
             .game-area {
                 width: 80vw;
@@ -246,6 +258,11 @@
             <div class="final-score" id="finalScore">スコア: 0</div>
             <button class="restart-btn" id="restartBtn">もう一度挑戦</button>
         </div>
+
+        <!-- デバッグ情報表示 -->
+        <div class="debug-info" id="debugInfo">
+            音声状態: <span id="audioStatus">初期化中...</span>
+        </div>
     </div>
 
     <script>
@@ -258,6 +275,7 @@
                 this.startScreen = document.getElementById('startScreen');
                 this.gameOverScreen = document.getElementById('gameOverScreen');
                 this.finalScoreElement = document.getElementById('finalScore');
+                this.debugInfo = document.getElementById('audioStatus');
                 
                 this.score = 0;
                 this.timeLeft = 30;
@@ -266,15 +284,21 @@
                 this.lastPosition = null;
                 this.path = [];
                 this.gameTimer = null;
-                this.audioInitialized = false; // 音声が初期化されているかのフラグ
+                this.audioInitialized = false;
                 
-                // 音声ファイルの初期化
+                // 音声オブジェクト
+                this.startSound = null;
+                this.pointSound = null;
+                this.overSound = null;
+                
                 this.initAudio();
                 this.initEventListeners();
             }
 
             initAudio() {
                 try {
+                    this.debugInfo.textContent = '音声ファイル読み込み中...';
+                    
                     // 音声ファイルの読み込み
                     this.startSound = new Audio('start.mp3');
                     this.pointSound = new Audio('point.mp3');
@@ -289,73 +313,161 @@
                     this.startSound.volume = 0.7;
                     this.pointSound.volume = 0.5;
                     this.overSound.volume = 0.6;
+                    
+                    // 読み込み完了イベント
+                    let loadedCount = 0;
+                    const checkAllLoaded = () => {
+                        loadedCount++;
+                        if (loadedCount === 3) {
+                            this.debugInfo.textContent = '音声ファイル読み込み完了';
+                            console.log('All audio files loaded');
+                        }
+                    };
+                    
+                    this.startSound.addEventListener('canplaythrough', checkAllLoaded, { once: true });
+                    this.pointSound.addEventListener('canplaythrough', checkAllLoaded, { once: true });
+                    this.overSound.addEventListener('canplaythrough', checkAllLoaded, { once: true });
+                    
+                    // エラーハンドリング
+                    this.startSound.addEventListener('error', (e) => {
+                        console.error('start.mp3 load error:', e);
+                        this.debugInfo.textContent = 'start.mp3読み込み失敗';
+                    });
+                    
+                    this.pointSound.addEventListener('error', (e) => {
+                        console.error('point.mp3 load error:', e);
+                    });
+                    
+                    this.overSound.addEventListener('error', (e) => {
+                        console.error('over.mp3 load error:', e);
+                    });
+                    
                 } catch (e) {
-                    console.log('Audio initialization failed:', e);
-                    // 音声なしでも動作するようにダミー関数を設定
-                    this.startSound = null;
-                    this.pointSound = null;
-                    this.overSound = null;
+                    console.error('Audio initialization failed:', e);
+                    this.debugInfo.textContent = '音声初期化失敗';
                 }
-                
-                this.playStartSound = () => {
-                    try {
-                        if (this.startSound) {
-                            this.startSound.currentTime = 0;
-                            this.startSound.play().catch(e => console.log('Start sound play failed:', e));
-                        }
-                    } catch (e) {
-                        console.log('Start sound error:', e);
-                    }
-                };
-                
-                this.playPointSound = () => {
-                    try {
-                        if (this.pointSound) {
-                            const soundClone = this.pointSound.cloneNode();
-                            soundClone.volume = this.pointSound.volume;
-                            soundClone.play().catch(e => console.log('Point sound play failed:', e));
-                        }
-                    } catch (e) {
-                        console.log('Point sound error:', e);
-                    }
-                };
+            }
 
-                this.playOverSound = () => {
-                    try {
-                        if (this.overSound) {
-                            this.overSound.currentTime = 0;
-                            this.overSound.play().catch(e => console.log('Over sound play failed:', e));
+            async enableAudioOnFirstInteraction() {
+                if (this.audioInitialized) return;
+                
+                try {
+                    this.debugInfo.textContent = '音声コンテキスト有効化中...';
+                    
+                    // モバイルブラウザ対応：短い無音を再生
+                    if (this.startSound) {
+                        this.startSound.muted = true;
+                        const playPromise = this.startSound.play();
+                        
+                        if (playPromise !== undefined) {
+                            await playPromise;
+                            this.startSound.pause();
+                            this.startSound.currentTime = 0;
+                            this.startSound.muted = false;
                         }
-                    } catch (e) {
-                        console.log('Over sound error:', e);
                     }
-                };
+                    
+                    this.audioInitialized = true;
+                    this.debugInfo.textContent = '音声準備完了';
+                    console.log('Audio context enabled');
+                    
+                } catch (e) {
+                    console.error('Audio enablement failed:', e);
+                    this.debugInfo.textContent = '音声有効化失敗';
+                    this.audioInitialized = true; // 失敗しても続行
+                }
+            }
+
+            async playStartSound() {
+                try {
+                    if (!this.startSound) {
+                        console.log('Start sound not loaded');
+                        this.debugInfo.textContent = 'start.mp3がありません';
+                        return;
+                    }
+                    
+                    // 音声を最初から再生
+                    this.startSound.currentTime = 0;
+                    
+                    const playPromise = this.startSound.play();
+                    if (playPromise !== undefined) {
+                        await playPromise;
+                        console.log('Start sound played successfully');
+                        this.debugInfo.textContent = 'start.mp3再生完了';
+                    }
+                } catch (e) {
+                    console.error('Start sound play failed:', e);
+                    this.debugInfo.textContent = 'start.mp3再生失敗: ' + e.message;
+                }
+            }
+
+            async playPointSound() {
+                try {
+                    if (!this.pointSound) return;
+                    
+                    // 複数回連続再生に対応するため、音声をクローン
+                    const soundClone = this.pointSound.cloneNode();
+                    soundClone.volume = this.pointSound.volume;
+                    
+                    const playPromise = soundClone.play();
+                    if (playPromise !== undefined) {
+                        await playPromise;
+                    }
+                } catch (e) {
+                    console.error('Point sound play failed:', e);
+                }
+            }
+
+            async playOverSound() {
+                try {
+                    if (!this.overSound) return;
+                    
+                    this.overSound.currentTime = 0;
+                    const playPromise = this.overSound.play();
+                    if (playPromise !== undefined) {
+                        await playPromise;
+                    }
+                } catch (e) {
+                    console.error('Over sound play failed:', e);
+                }
             }
 
             initEventListeners() {
-                // ボタンイベント（モバイル対応強化）
                 const startBtn = document.getElementById('startBtn');
                 const restartBtn = document.getElementById('restartBtn');
                 
-                // 複数のイベントタイプに対応
-                ['click', 'touchstart'].forEach(eventType => {
-                    startBtn.addEventListener(eventType, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Start button triggered:', eventType);
-                        this.initializeAudioOnFirstInteraction();
-                        this.startGame();
-                    });
-                    
-                    restartBtn.addEventListener(eventType, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Restart button triggered:', eventType);
-                        this.restartGame();
-                    });
+                // スタートボタン
+                startBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    console.log('Start button clicked');
+                    await this.enableAudioOnFirstInteraction();
+                    this.startGame();
                 });
                 
-                // マウスイベント（PC用）
+                // タッチイベント対応
+                startBtn.addEventListener('touchend', async (e) => {
+                    e.preventDefault();
+                    console.log('Start button touched');
+                    await this.enableAudioOnFirstInteraction();
+                    this.startGame();
+                });
+                
+                // リスタートボタン
+                restartBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    console.log('Restart button clicked');
+                    await this.enableAudioOnFirstInteraction();
+                    this.restartGame();
+                });
+                
+                restartBtn.addEventListener('touchend', async (e) => {
+                    e.preventDefault();
+                    console.log('Restart button touched');
+                    await this.enableAudioOnFirstInteraction();
+                    this.restartGame();
+                });
+                
+                // ゲームエリアのイベント
                 this.gameArea.addEventListener('mousedown', (e) => {
                     if (!this.gameRunning) return;
                     this.startDrawing(e);
@@ -369,7 +481,6 @@
                     this.stopDrawing();
                 });
                 
-                // タッチイベント（モバイル用）
                 this.gameArea.addEventListener('touchstart', (e) => {
                     if (!this.gameRunning) return;
                     e.preventDefault();
@@ -389,30 +500,7 @@
                 }, { passive: false });
             }
 
-            // 最初のインタラクション時に音声を初期化（モバイルブラウザ対応）
-            initializeAudioOnFirstInteraction() {
-                if (this.audioInitialized) return;
-                
-                console.log('Initializing audio on first interaction...');
-                
-                // 短い無音を再生してオーディオコンテキストを有効化
-                if (this.startSound) {
-                    const originalVolume = this.startSound.volume;
-                    this.startSound.volume = 0.01; // ほぼ無音
-                    this.startSound.play().then(() => {
-                        console.log('Audio context activated');
-                        this.startSound.pause();
-                        this.startSound.currentTime = 0;
-                        this.startSound.volume = originalVolume;
-                        this.audioInitialized = true;
-                    }).catch(e => {
-                        console.log('Audio initialization failed:', e);
-                        this.audioInitialized = true; // 失敗してもフラグを立てる
-                    });
-                }
-            }
-
-            startGame() {
+            async startGame() {
                 console.log('Starting game...');
                 
                 this.startScreen.style.display = 'none';
@@ -421,16 +509,10 @@
                 this.timeLeft = 30;
                 this.updateDisplay();
                 
-                // 少し遅延を入れてから音声再生
-                setTimeout(() => {
-                    try {
-                        this.playStartSound();
-                    } catch (e) {
-                        console.log('Sound play failed:', e);
-                    }
-                }, 100);
-                
-                console.log('Game started, timer starting...');
+                // 開始音を再生（少し遅延させる）
+                setTimeout(async () => {
+                    await this.playStartSound();
+                }, 200);
                 
                 this.gameTimer = setInterval(() => {
                     this.timeLeft--;
@@ -442,10 +524,12 @@
                 }, 1000);
             }
 
-            endGame() {
+            async endGame() {
                 this.gameRunning = false;
                 clearInterval(this.gameTimer);
-                this.playOverSound(); // 終了音を再生
+                
+                await this.playOverSound();
+                
                 this.finalScoreElement.textContent = `スコア: ${this.score}`;
                 this.gameOverScreen.style.display = 'flex';
             }
@@ -468,7 +552,6 @@
                 this.lastPosition = position;
                 this.path.push(position);
                 
-                // タッチした場所にくぼみエフェクトを追加
                 this.addTouchDent(position);
             }
 
@@ -481,10 +564,8 @@
                     y: e.clientY - rect.top
                 };
                 
-                // 軌跡エフェクトを追加
                 this.addTrailEffect(currentPosition);
                 
-                // 移動中もくぼみエフェクトを追加（間隔をあけて）
                 if (this.path.length % 3 === 0) {
                     this.addTouchDent(currentPosition);
                 }
@@ -493,15 +574,14 @@
                 this.lastPosition = currentPosition;
             }
 
-            stopDrawing() {
+            async stopDrawing() {
                 if (!this.gameRunning || !this.isDrawing) return;
                 
                 this.isDrawing = false;
                 
-                // 円の検出
                 if (this.detectCircle()) {
                     this.score++;
-                    this.playPointSound();
+                    await this.playPointSound();
                     this.addRippleEffect();
                     this.animateLiquid();
                     this.updateDisplay();
@@ -513,13 +593,11 @@
             detectCircle() {
                 if (this.path.length < 20) return false;
                 
-                // 簡単な円検出アルゴリズム
                 const center = this.calculateCenter();
                 const radius = this.calculateAverageRadius(center);
                 
                 if (radius < 30 || radius > 200) return false;
                 
-                // 円らしさの判定
                 let validPoints = 0;
                 for (let point of this.path) {
                     const distance = Math.sqrt(
